@@ -9,13 +9,21 @@ class Character(object):
     def __init__(self, role):
         self.role = role
         self.alive = True
+        self.investigated = False
         self.team = Character.team_dict[Character.char_dict[self.role]]
         self.suspects = {}
-        self.know = []
+        self.another_boolean = False
+        if self.role in ['mafia1', 'mafia2', 'mafia3', 'mafia4', 'mafia5', 'joker']:
+            self.suspicious = True
+        else:
+            self.suspicious = False
+        if self.role == 'cop':
+            self.investigated = True
 
     def __repr__(self):
         # team = Character.team_dict[Character.char_dict[self.role]]
-        return '{}. (member of {})'.format(self.role, self.team)
+        # return '{}. (member of {})'.format(self.role, self.team)
+        return self.role
 
     def set_suspects(self, squad):
         if self.team == 'mafia':
@@ -84,24 +92,84 @@ class Squad(object):
         self.members.pop(player)
         return self.members
 
-def woke_maifa(squad):
+def reweight_dict(d):
+    factor = 1.0/sum(d.itervalues())
+    for k in d:
+        d[k] = d[k]*factor
+    return d
+
+def woke_maifa(squad, night_num):
     possible_killers = []
     for player in squad.members:
         if player.alive == True and player.team == 'mafia':
             possible_killers.append(player)
     suspects = possible_killers[0].suspects
-    target = choice(suspects.keys(), 1, suspects.values())[0]
+    suspects = reweight_dict(suspects)
+    target = choice(suspects.keys(), 1, p=suspects.values())[0]
     killer = random.choice(possible_killers)
+    print 'night {}: the mafia is targeting the {} ({}%) with {} preforming the killing'.format(night_num, target.role, round(100*suspects[target], 1), killer.role)
     return killer, target
 
-def woke_cop(squad):
-    # investigee = /
+def woke_cop(squad, night_num):
+    for player in squad.members:
+        if player.role == 'cop':
+            suspects = player.suspects
+            suspects = reweight_dict(suspects)
+            investigee = player
+            while investigee.investigated == True:
+                investigee = choice(suspects.keys(), 1, p=suspects.values())[0]
+                chance = round(100*suspects[investigee], 1)
+            investigee.investigated = True
+            if investigee.suspicious == True:
+                player.suspects[investigee] *= 5
+                result = 'positive'
+            else:
+                player.suspects[investigee] /= 3
+                result = 'negative'
+    print 'night {}: the cop investigated the {} ({}%) and they came up {}'.format(night_num, investigee, chance, result)
 
-def night(squad):
-    killer, target = woke_maifa(squad)
-    woke_cop(squad)
-    # woke_doctor(squad)
-    # woke_slut(squad)
+def woke_doctor(squad, night_num):
+    for player in squad.members:
+        if player.role == 'doctor':
+            possible_savees = player.suspects
+            if night_num == 1:
+                savee = player
+                print 'night {}: the doctor saved themselves'.format(night_num)
+            else:
+                for possible_savee in possible_savees:
+                    if possible_savee.suspicious == True:
+                        possible_savees[possible_savee] /= 3
+                    else:
+                        possible_savees[possible_savee] *= 3
+                        if possible_savee.role == 'cop':
+                            possible_savees[possible_savee] *= 2
+                possible_savees = reweight_dict(possible_savees)
+                savee = choice(possible_savees.keys(), 1, p=possible_savees.values())[0]
+                print 'night {}: the doctor saved the {} ({}%)'.format(night_num, savee, round(100*possible_savees[savee], 1))
+    return savee
+
+def woke_slut(squad, night_num):
+    for player in squad.members:
+        if player.role == 'slut':
+            occupee = choice(player.suspects.keys(), 1, player.suspects.values())[0]
+            print 'night {}: the slut occupied the {} ({}%)'.format(night_num, occupee, round(100*player.suspects[occupee], 1))
+    return occupee
+
+def woke_werewolf(squad, night_num):
+    [target_1, target_2] = [0, 0]
+    for player in squad.members:
+        if player.role == 'werewolf':
+            if min(0.5, (night_num - 1)/4.) > random.random():
+                player.another_boolean = True
+                [target_1, target_2] = choice(player.suspects.keys(), 2, player.suspects.values())[0:2]
+    return [target_1, target_2]
+
+def night(squad, night_num):
+    killer, target_m = woke_maifa(squad, night_num)
+    woke_cop(squad, night_num)
+    savee = woke_doctor(squad, night_num)
+    occupee = woke_slut(squad, night_num)
+    target_w1, target_w2 = woke_werewolf(squad, night_num)
 
 # def day(squad)
     # vigilante
@@ -112,4 +180,5 @@ if __name__ == '__main__':
     num_players = raw_input('enter number of players (6-13): ')
     squad = Squad(int(num_players))
     print squad
-    night(squad)
+    for n in [1, 2]:
+        night(squad, n)
