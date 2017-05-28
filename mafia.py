@@ -238,7 +238,7 @@ def night(squad, night_num):
     squad = night_result(squad, killer, target_m, savee, occupee, target_w1, target_w2, night_num)
 
 # def day(squad)
-    # vigilante
+    # vigilante 
     # treestump
     # joker
 
