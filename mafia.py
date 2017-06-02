@@ -226,7 +226,20 @@ def night_result(squad, killer, target_m, savee, occupee, target_w1, target_w2, 
         if player.alive == True:
             remaining_players.append(player)
     print 'the remaining_players are: {}'.format(remaining_players)
-    return squad
+
+def awake_vigilante(squad, day_num):
+    shootee = ''
+    for player in squad.members:
+        if player.role == 'vigilante' and player.alive == True:
+            player.suspects = reweight_dict(player.suspects)
+            for possible_shootee in player.suspects:
+                if player.suspects[possible_shootee] > 0.8:
+                    shootee = possible_shootee
+    if shootee == '':
+        print "day {}: the vigilante doesn't shoot anyone".foramt(day_num)
+    else:
+        print 'day {}: the vigilante shoots the {}!'.format(day_num, shootee.role)
+        #######record that the vig killed someone and take them out of the game!
 
 
 def night(squad, night_num):
@@ -237,8 +250,9 @@ def night(squad, night_num):
     target_w1, target_w2 = woke_werewolf(squad, night_num)
     squad = night_result(squad, killer, target_m, savee, occupee, target_w1, target_w2, night_num)
 
-# def day(squad)
-    # vigilante 
+def day(squad, night_num):
+    shootee = awake_vigilante(squad, night_num)
+
     # treestump
     # joker
 
@@ -248,4 +262,6 @@ if __name__ == '__main__':
     print squad, '\n'
     for n in [1, 2, 3, 4]:
         night(squad, n)
-        print '\n'
+        print ''
+        day(squad, n)
+        print ''
