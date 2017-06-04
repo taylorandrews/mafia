@@ -209,14 +209,7 @@ def night_result(squad, killer, target_m, savee, occupee, target_w1, target_w2, 
                 target_w2.alive = False
                 killed_tonight[target_w2] = 'werewolf'
     if len(killed_tonight) > 0:
-        for dead_member in set(killed_tonight.keys()):
-            for player in squad.members:
-                if player != dead_member:
-                    if dead_member.team == 'maifa' and player.team != 'mafia':
-                        player.suspects[dead_member] /= 100000
-                    elif dead_member.team != 'mafia':
-                        player.suspects[dead_member] /= 100000
-            print 'night {}: {} was murdered in the night by the {}'.format(night_num, dead_member, killed_tonight[dead_member])
+        eliminate_player(killed_tonight, squad, night_num, 'night')
     else:
         if len(reasons) < 2:
             print 'night {}: nobody died tonight because {}'.format(night_num, reasons[0])
@@ -227,20 +220,43 @@ def night_result(squad, killer, target_m, savee, occupee, target_w1, target_w2, 
             remaining_players.append(player)
     print 'the remaining_players are: {}'.format(remaining_players)
 
+def eliminate_player(killed_dict, squad, night_num, time):
+    for dead_member in set(killed_dict.keys()):
+        for player in squad.members:
+            if player != dead_member:
+                if dead_member.team == 'maifa' and player.team != 'mafia':
+                    player.suspects[dead_member] /= 100000
+                elif dead_member.team != 'mafia':
+                    player.suspects[dead_member] /= 100000
+        print '{} {}: {} was murdered in the {} by the {}'.format(time, night_num, dead_member, time, killed_dict[dead_member])
+
 def awake_vigilante(squad, day_num):
     shootee = ''
+    killed_dict = {}
+    marker = 0
     for player in squad.members:
-        if player.role == 'vigilante' and player.alive == True:
-            player.suspects = reweight_dict(player.suspects)
-            for possible_shootee in player.suspects:
-                if player.suspects[possible_shootee] > 0.8:
+        if player.role == 'vigilante' and player.alive == True and player.another_boolean == False:
+            possible_shootees = player.suspects
+            possible_shootees = reweight_dict(possible_shootees)
+            for possible_shootee in possible_shootees:
+                if possible_shootee.role == 'joker' and possible_shootee.investigated == True:
+                        if random.random() > max(0.5/day_num, 0.1):
+                            shootee = possible_shootee
+                            killed_dict[shootee] = 'vigilante'
+                        else:
+                            player.suspects[possible_shootee] *= 2
+            if len(killed_dict) == 0:
+                possible_shootees = reweight_dict(possible_shootees)
+                potential_shootee = choice(possible_shootees.keys(), 1, p=possible_shootees.values())[0]
+                if player.suspects[potential_shootee] > 0.13:
                     shootee = possible_shootee
-    if shootee == '':
-        print "day {}: the vigilante doesn't shoot anyone".foramt(day_num)
-    else:
-        print 'day {}: the vigilante shoots the {}!'.format(day_num, shootee.role)
-        #######record that the vig killed someone and take them out of the game!
-
+                    killed_dict[shootee] = 'vigilante'
+            if shootee == '':
+                print "day {}: the vigilante doesn't shoot anyone".format(day_num)
+            else:
+                player.another_boolean = True
+                shootee.alive = False
+                eliminate_player(killed_dict, squad, day_num, 'day')
 
 def night(squad, night_num):
     killer, target_m = woke_maifa(squad, night_num)
@@ -252,9 +268,6 @@ def night(squad, night_num):
 
 def day(squad, night_num):
     shootee = awake_vigilante(squad, night_num)
-
-    # treestump
-    # joker
 
 if __name__ == '__main__':
     num_players = raw_input('enter number of players (6-13): ')
