@@ -251,12 +251,66 @@ def awake_vigilante(squad, day_num):
                 if player.suspects[potential_shootee] > 0.13:
                     shootee = possible_shootee
                     killed_dict[shootee] = 'vigilante'
-            if shootee == '':
-                print "day {}: the vigilante doesn't shoot anyone".format(day_num)
-            else:
+            if shootee != '':
+                for member in squad.members:
+                    if member.team == 'mafia':
+                        member.suspects[player] *= 2
+                    elif member.team != 'mafia' and member.role != 'vigilante':
+                        member.suspects[player] = 0
                 player.another_boolean = True
                 shootee.alive = False
                 eliminate_player(killed_dict, squad, day_num, 'day')
+
+def day_result(squad, day_num):
+    i = 0
+    total_votes = 0.
+    total_yes = 0.
+    killed_dict = {}
+    vote_leaders = []
+    for player in squad.members:
+        if player.alive == True and player.team == 'townspeople':
+            vote_leaders.append(player)
+    if random.random() < min((day_num)*0.4, 1):
+        print 'there will be a vote'
+        for player in random.sample(vote_leaders, 2):
+            # print player.role
+            if player.team == 'townspeople' and i == 0:
+                player.suspects = reweight_dict(player.suspects)
+                potential_killee = choice(player.suspects.keys(), 1, p=player.suspects.values())[0]
+                print 'the {} was nominated by the {}'.format(potential_killee.role, player.role)
+                for voter in squad.members:
+                    if voter.alive == True:
+                        total_votes += 1
+                        if voter == player:
+                            print 'the {} voted to kill the {}'.format(voter.role, potential_killee)
+                            total_yes += 1
+                        else:
+                            if potential_killee.team == 'mafia':
+                                if voter.team == 'townspeople' and random.random() > 0.2:
+                                    print 'the {} voted to kill the {}'.format(voter.role, potential_killee)
+                                    total_yes += 1
+                            elif potential_killee.team == 'townspeople':
+                                if voter.team == 'mafia' and random.random() > 0.4:
+                                    total_yes += 1
+                                    print 'the {} voted to kill the {}'.format(voter.role, potential_killee)
+                            elif random.random() > 0.5:
+                                total_yes += 1
+                                print 'the {} voted to kill the {}'.format(voter.role, potential_killee)
+                if total_yes / total_votes > 0.5:
+                    killed_dict[potential_killee] = 'angry mob of townspeople'
+                    print 'the vote passed ({} kill, {} save)'.format(total_yes, (total_votes-total_yes))
+                    eliminate_player(killed_dict, squad, day_num, 'day')
+                    potential_killee.alive = False
+                    if potential_killee.role == 'joker':
+                        ending(squad, day_num, 'j')
+                else:
+                    print 'the vote failed to pass ({} kill, {} save)'.format(total_yes, (total_votes-total_yes))
+                i += 1
+    else:
+        print 'there will not be a vote'
+
+
+
 
 def night(squad, night_num):
     killer, target_m = woke_maifa(squad, night_num)
@@ -268,13 +322,47 @@ def night(squad, night_num):
 
 def day(squad, night_num):
     shootee = awake_vigilante(squad, night_num)
+    day_result(squad, night_num)
+
+def ending(squad, num, path):
+    winner = ''
+    game = True
+    mafia_size, townspeople_size = 0, 0
+    if path == 'j':
+        print 'the joker was killed by an angry mob. as he desired\nGAME OVER.'
+        game = False
+        winner = 'joker'
+    else:
+        for player in squad.members:
+            if player.team == 'mafia' and player.alive == True:
+                mafia_size += 1
+            elif player.team == 'townspeople' and player.alive == True:
+                townspeople_size += 1
+        # print mafia_size, townspeople_size
+        if mafia_size > townspeople_size:
+            print 'the mafia outnumber the townspeople and take over the town\nGAME OVER.'
+            game = False
+            winner = 'mafia'
+        if mafia_size == 0:
+            print 'the townspeople and eradicated all members of the mafia\nGAME OVER.'
+            game = False
+            winner = 'townspeople'
+    print ''
+    return game, winner
 
 if __name__ == '__main__':
+    winner_dict = {'mafia': 0, 'townspeople': 0, 'joker': 0}
     num_players = raw_input('enter number of players (6-13): ')
-    squad = Squad(int(num_players))
-    print squad, '\n'
-    for n in [1, 2, 3, 4]:
-        night(squad, n)
-        print ''
-        day(squad, n)
-        print ''
+    for i in range(1):
+        squad = Squad(int(num_players))
+        print squad, '\n'
+        n, game = 1, True
+        while game:
+            night(squad, n)
+            game = ending(squad, n, 'nj')
+            print ''
+            if game:
+                day(squad, n)
+                game = ending(squad, n, 'nj')
+                n += 1
+        winner_dict[winner] += 1
