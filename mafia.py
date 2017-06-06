@@ -350,19 +350,24 @@ def ending(squad, num, path):
     print ''
     return game, winner
 
+def game(num_players=10):
+    squad = Squad(int(num_players))
+    game, n = True, 1
+    while game:
+        night(squad, n)
+        game, winner = ending(squad, n, 'nj')
+        print ''
+        if game:
+            day(squad, n)
+            game, winner = ending(squad, n, 'nj')
+            n += 1
+    return winner
+
+
 if __name__ == '__main__':
     winner_dict = {'mafia': 0, 'townspeople': 0, 'joker': 0}
-    num_players = raw_input('enter number of players (6-13): ')
-    for i in range(1):
-        squad = Squad(int(num_players))
-        print squad, '\n'
-        n, game = 1, True
-        while game:
-            night(squad, n)
-            game = ending(squad, n, 'nj')
-            print ''
-            if game:
-                day(squad, n)
-                game = ending(squad, n, 'nj')
-                n += 1
+    # num_players = raw_input('enter number of players (6-13): ')
+
+    for i in range(100):
+        winner = game()
         winner_dict[winner] += 1
